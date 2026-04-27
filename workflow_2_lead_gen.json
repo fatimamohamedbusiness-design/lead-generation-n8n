@@ -1,0 +1,62 @@
+{
+  "name": "Lead Generation — Auto-Capture to Google Sheets + Email Alert",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "new-lead", "responseMode": "responseNode", "options": {} },
+      "id": "node-lg-001", "name": "Webhook — New Lead", "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1, "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst lead = {\n  full_name: body.name || body.full_name || 'Unknown',\n  email: body.email || '',\n  phone: body.phone || '',\n  service: body.service || body.interest || '',\n  source: body.source || 'Website Form',\n  timestamp: new Date().toISOString(),\n  status: 'New Lead'\n};\nreturn [{ json: lead }];"
+      },
+      "id": "node-lg-002", "name": "Format Lead Data", "type": "n8n-nodes-base.code",
+      "typeVersion": 2, "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "mode": "id", "value": "YOUR_GOOGLE_SHEET_ID" },
+        "sheetName": { "mode": "name", "value": "Leads" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Full Name": "={{ $json.full_name }}",
+            "Email": "={{ $json.email }}",
+            "Phone": "={{ $json.phone }}",
+            "Service": "={{ $json.service }}",
+            "Source": "={{ $json.source }}",
+            "Timestamp": "={{ $json.timestamp }}",
+            "Status": "={{ $json.status }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "node-lg-003", "name": "Google Sheets — Save Lead", "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4, "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your@email.com",
+        "toEmail": "your@email.com",
+        "subject": "New Lead: {{ $json.full_name }}",
+        "emailType": "text",
+        "message": "New lead received!\n\nName: {{ $json.full_name }}\nEmail: {{ $json.email }}\nPhone: {{ $json.phone }}\nService: {{ $json.service }}\nSource: {{ $json.source }}\nTime: {{ $json.timestamp }}"
+      },
+      "id": "node-lg-004", "name": "Send Email Alert", "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2, "position": [960, 300]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "{\"success\": true, \"message\": \"Lead captured successfully\"}" },
+      "id": "node-lg-005", "name": "Respond — OK", "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1, "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "Webhook — New Lead": { "main": [[{ "node": "Format Lead Data", "type": "main", "index": 0 }]] },
+    "Format Lead Data": { "main": [[{ "node": "Google Sheets — Save Lead", "type": "main", "index": 0 }]] },
+    "Google Sheets — Save Lead": { "main": [[{ "node": "Send Email Alert", "type": "main", "index": 0 }]] },
+    "Send Email Alert": { "main": [[{ "node": "Respond — OK", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
